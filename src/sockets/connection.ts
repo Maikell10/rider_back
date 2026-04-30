@@ -30,17 +30,21 @@ export const setupSockets = (io: Server) => {
         const user = socket.data.user;
         console.log(`🟢 Conexión Socket exitosa [ID: ${socket.id} | Rol: ${user.role}]`);
 
-        // Unimos al usuario a una "sala" que se llama exactamente como su UUID de la BD.
-        // Esto evita que le enviemos los datos del viaje de María a la app de Patricia.
+        // 1. Unirse a su sala personal (basado en el ID de la base de datos)
+        // Nota: Asegúrate si es user.userId o user.id según tu JWT
         socket.join(user.userId);
 
-        // Delegamos los eventos de pedir viaje a nuestro handler
+        // 2. Si es Conductora, unirla al gremio de conductoras disponibles
+        if (user.role === 'driver') {
+            socket.join('drivers_room');
+            console.log(`🚕 Conductora ${user.id} entró a la sala de ofertas.`);
+        }
+
+        // 3. Delegamos el resto de la lógica de viajes
         handleRideEvents(io, socket);
 
-        // 🔴 Evento: Cuando pierden señal o cierran la app
         socket.on('disconnect', (reason) => {
-            console.log(`🔴 Socket Desconectado [ID: ${socket.id} | Razón: ${reason}]`);
-            // Aquí en el futuro, si es conductora, limpiaremos su ubicación en Redis
+            console.log(`🔴 Desconectado: ${user.id} | Razón: ${reason}`);
         });
     });
 };
