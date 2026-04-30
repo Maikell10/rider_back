@@ -43,35 +43,43 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     try {
         const { phone, code } = req.body;
 
-        const storedCode = otpStore.get(phone);
+        // --- MODO DESARROLLADOR: BYPASS MAESTRO ---
+        // Si es nuestro número de pruebas de 11 ceros y la clave es 123456, pasamos directo
+        const isBypass = (phone === '00000000000' && code === '123456');
 
-        if (!storedCode || storedCode !== code) {
-            res.status(401).json({ error: 'Código inválido o expirado.' });
-            return;
+        if (!isBypass) {
+            // Flujo normal para usuarios reales
+            const storedCode = otpStore.get(phone);
+
+            if (!storedCode || storedCode !== code) {
+                res.status(401).json({ error: 'Código inválido o expirado.' });
+                return;
+            }
+            // OTP Válido. Limpiamos la caché.
+            otpStore.delete(phone);
         }
-
-        // OTP Válido. Limpiamos la caché.
-        otpStore.delete(phone);
+        // ------------------------------------------
 
         // BUSCAMOS O CREAMOS EL USUARIO EN MYSQL
         const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM Users WHERE phone = ?', [phone]);
         let user = rows[0];
 
         if (!user) {
-            // El usuario no existe, lo registramos por primera vez
+            // El usuario no existe, lo registramos usando Node.js Nativo
+            const { randomUUID } = require('crypto');
             const newUserId = randomUUID();
+
             await pool.execute(
                 'INSERT INTO Users (id, phone, role, verification_status) VALUES (?, ?, ?, ?)',
                 [newUserId, phone, 'passenger', 'pending']
             );
 
-            // Lo recuperamos para tener el objeto completo
             const [newRows] = await pool.execute<RowDataPacket[]>('SELECT * FROM Users WHERE id = ?', [newUserId]);
             user = newRows[0];
             console.log('Nuevo usuario registrado:', user.phone);
         }
 
-        // Generamos el Token JWT usando los datos reales de la BD
+        // Generamos el Token JWT usando los datos de la BD
         const token = jwt.sign(
             {
                 userId: user.id,
@@ -88,6 +96,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
             user: { id: user.id, phone: user.phone, role: user.role, status: user.verification_status }
         });
     } catch (error: any) {
+        console.error("Error en verifyOTP:", error);
         res.status(500).json({ error: 'Error al verificar el código.' });
     }
 };
