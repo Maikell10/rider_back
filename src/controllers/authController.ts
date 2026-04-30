@@ -20,7 +20,7 @@ export const requestOTP = async (req: Request, res: Response): Promise<void> => 
         let otpCode;
 
         // --- MODO DESARROLLADOR: BYPASS ---
-        if (phone === '0000000000') {
+        if (phone === '00000000000') {
             otpCode = '123456'; // Siempre será este código para el número de prueba
         } else {
             // Generación normal para el resto
