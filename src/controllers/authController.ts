@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid'; // Instala con: npm install uuid && npm install -D @types/uuid
+import { randomUUID } from 'crypto';
 import { pool } from '../config/db';
 import { RowDataPacket } from 'mysql2';
 
@@ -17,8 +17,16 @@ export const requestOTP = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Generamos un código de 6 dígitos
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        let otpCode;
+
+        // --- MODO DESARROLLADOR: BYPASS ---
+        if (phone === '0000000000') {
+            otpCode = '123456'; // Siempre será este código para el número de prueba
+        } else {
+            // Generación normal para el resto
+            otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        }
+        // ----------------------------------
 
         // Guardamos el OTP asociado al teléfono (En producción: usar Redis con TTL de 5 mins)
         otpStore.set(phone, otpCode);
@@ -51,7 +59,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
         if (!user) {
             // El usuario no existe, lo registramos por primera vez
-            const newUserId = uuidv4();
+            const newUserId = randomUUID();
             await pool.execute(
                 'INSERT INTO Users (id, phone, role, verification_status) VALUES (?, ?, ?, ?)',
                 [newUserId, phone, 'passenger', 'pending']
