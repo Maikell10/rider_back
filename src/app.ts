@@ -10,6 +10,11 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
+// Prueba de vida para Vercel
+app.get("/", (req, res) => {
+    res.send("API de Rides: El servidor está vivo y funcionando 🚀");
+});
+
 // Montamos nuestras rutas
 app.use('/api/rides', rideRoutes);
 
