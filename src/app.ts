@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rideRoutes from './routes/rideRoutes';
+import authRoutes from './routes/authRoutes'
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get("/", (req, res) => {
 });
 
 // Montamos nuestras rutas
+app.use('/api/auth', authRoutes);
 app.use('/api/rides', rideRoutes);
 
 export default app;
