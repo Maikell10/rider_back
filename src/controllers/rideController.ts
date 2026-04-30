@@ -1,32 +1,31 @@
 import { Request, Response } from 'express';
-import { PricingEngine } from '../services/PricingEngine';
+import { PricingService } from '../services/pricingService';
 
 export const quoteRide = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { origin, destination, rideType } = req.body;
+        const { distanceMeters, durationSeconds } = req.body;
 
-        // Validación básica
-        if (!origin || !destination || !origin.lat || !destination.lat) {
-            res.status(400).json({ error: 'Faltan coordenadas de origen o destino.' });
+        // Validaciones de seguridad
+        if (!distanceMeters || !durationSeconds) {
+            res.status(400).json({ error: 'Faltan parámetros geoespaciales.' });
             return;
         }
 
-        // Llamamos a nuestro servicio de negocio
-        const quote = await PricingEngine.calculateFare(
-            { lat: origin.lat, lng: origin.lng },
-            { lat: destination.lat, lng: destination.lng },
-            rideType || 'STANDARD'
-        );
+        // Caso de error: Prevención de viajes absurdamente largos o cortos
+        if (distanceMeters < 100 || distanceMeters > 150000) {
+            res.status(400).json({ error: 'La distancia del viaje está fuera de la zona de cobertura.' });
+            return;
+        }
 
-        // Generamos un ID de cotización efímero (podría guardarse en Redis con un TTL de 5 mins)
-        const quoteId = `qte_${Date.now()}`;
+        const fares = PricingService.calculateFares({ distanceMeters, durationSeconds });
 
         res.status(200).json({
-            quoteId,
-            ...quote
+            success: true,
+            quotes: fares
         });
 
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error) {
+        console.error("Error calculando tarifa:", error);
+        res.status(500).json({ error: 'Error interno en el motor de precios.' });
     }
 };
