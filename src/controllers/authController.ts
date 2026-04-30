@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { pool } from '../config/db';
 import { RowDataPacket } from 'mysql2';
+import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 
 // NOTA: En producción, usaríamos Twilio, Firebase o AWS SNS para enviar el SMS.
 // Usamos un objeto en memoria temporal para simular una base de datos/Redis para los OTP.
@@ -98,5 +99,46 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     } catch (error: any) {
         console.error("Error en verifyOTP:", error);
         res.status(500).json({ error: 'Error al verificar el código.' });
+    }
+};
+
+export const verifyIdentity = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Usuario no autenticado.' });
+            return;
+        }
+
+        // 1. Actualizamos el estado en la Base de Datos a 'approved'
+        await pool.execute(
+            'UPDATE Users SET verification_status = "approved" WHERE id = ?',
+            [userId]
+        );
+
+        // 2. Buscamos los datos actualizados
+        const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM Users WHERE id = ?', [userId]);
+        const user = rows[0];
+
+        // 3. Generamos un NUEVO Token JWT que ahora tiene status: 'approved'
+        const newToken = jwt.sign(
+            {
+                userId: user.id,
+                role: user.role,
+                status: user.verification_status
+            },
+            process.env.JWT_SECRET as string,
+            { expiresIn: '30d' }
+        );
+
+        res.status(200).json({
+            message: 'Identidad verificada con éxito',
+            token: newToken
+        });
+
+    } catch (error: any) {
+        console.error("Error en verifyIdentity:", error);
+        res.status(500).json({ error: 'Error interno al procesar la verificación.' });
     }
 };
