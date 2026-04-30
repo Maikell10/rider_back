@@ -9,4 +9,4 @@ dotenv.config();
 // });
 
 // EXPORTACIÓN OBLIGATORIA PARA VERCEL
-module.exports = app;
+export default app;
