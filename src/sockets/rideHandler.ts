@@ -6,15 +6,19 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
     socket.on('request_ride', (data) => {
         const user = socket.data.user;
 
+        // 🛡️ FIX ARQUITECTÓNICO: Garantizar un ID. 
+        // Si user.id falla, usamos socket.id que es 100% seguro y único para esa sesión.
+        const safePassengerId = user.id || user.userId || socket.id;
+
         console.log(`🚀 Viaje solicitado por: ${user.name} (${data.rideType})`);
 
         // Estructuramos la oferta para las conductoras
         const rideOffer = {
             rideId: `RIDE-${Math.random().toString(36).toUpperCase().substr(2, 7)}`,
             passenger: {
-                id: user.id,
-                name: user.name,
-                rating: 4.9, // Mock por ahora
+                id: safePassengerId, // <--- ¡ESTO ES LO QUE FALTABA!
+                name: user.name || 'Pasajera Frecuente',
+                rating: 5.0,
                 phone: user.phone
             },
             origin: data.origin,
@@ -54,5 +58,12 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
 
         // Sacamos a la conductora de la sala de ofertas para que no le lleguen más mientras viaja
         socket.leave('drivers_room');
+    });
+
+    // 3. NUEVO: ESCUCHAR: La pasajera cancela la búsqueda
+    socket.on('cancel_ride_request', () => {
+        // En una app real, aquí emitiríamos a 'drivers_room' un evento 'ride_cancelled' 
+        // para desaparecer la tarjeta flotante si la conductora no la ha aceptado aún.
+        console.log(`🛑 Búsqueda cancelada por el socket: ${socket.id}`);
     });
 };
