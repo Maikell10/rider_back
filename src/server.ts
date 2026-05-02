@@ -6,7 +6,7 @@ import { setupSockets } from './sockets/connection';
 
 dotenv.config();
 
-// const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -18,11 +18,11 @@ const io = new Server(httpServer, {
 
 setupSockets(io);
 
-// httpServer.listen(PORT, () => {
-//     console.log(`🚀 Servidor Rider Backend (REST) corriendo en puerto ${PORT}`);
-//     console.log(`🔌 Motor de Sockets (Real-Time) inicializado exitosamente`);
-// });
+httpServer.listen(PORT, () => {
+    console.log(`🚀 Servidor Rider Backend (REST) corriendo en puerto ${PORT}`);
+    console.log(`🔌 Motor de Sockets (Real-Time) inicializado exitosamente`);
+});
 
 
 // EXPORTACIÓN OBLIGATORIA PARA VERCEL
-export default httpServer;
+//export default httpServer;
