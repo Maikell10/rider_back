@@ -75,4 +75,18 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
         // Cero fugas de datos. Privacidad total.
         socket.to(passengerId).emit('driver_location_update', location);
     });
+
+    // 5. ESCUCHAR: La conductora indica que llegó al punto de recogida
+    socket.on('driver_arrived', (data) => {
+        const { passengerId, rideId } = data;
+        const driver = socket.data.user;
+
+        console.log(`📍 Conductora ${driver.name} llegó al punto para el viaje ${rideId}`);
+
+        // Notificamos a la pasajera en su canal seguro
+        socket.to(passengerId).emit('driver_arrived', {
+            rideId,
+            message: "Tu conductora está afuera."
+        });
+    });
 };
