@@ -60,10 +60,19 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
         socket.leave('drivers_room');
     });
 
-    // 3. NUEVO: ESCUCHAR: La pasajera cancela la búsqueda
+    // 3. ESCUCHAR: La pasajera cancela la búsqueda
     socket.on('cancel_ride_request', () => {
         // En una app real, aquí emitiríamos a 'drivers_room' un evento 'ride_cancelled' 
         // para desaparecer la tarjeta flotante si la conductora no la ha aceptado aún.
         console.log(`🛑 Búsqueda cancelada por el socket: ${socket.id}`);
+    });
+
+    // 4. ESCUCHAR: Actualización de ubicación en tiempo real de la conductora
+    socket.on('driver_location_update', (data) => {
+        const { passengerId, location } = data;
+
+        // Enrutamos la ubicación estrictamente a la sala privada de la pasajera.
+        // Cero fugas de datos. Privacidad total.
+        socket.to(passengerId).emit('driver_location_update', location);
     });
 };
