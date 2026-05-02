@@ -1,5 +1,8 @@
 import { Server, Socket } from 'socket.io';
 
+// 🛡️ MEMORIA TEMPORAL PARA LOS PINES DE SEGURIDAD
+const activeRidesDB = new Map();
+
 export const handleRideEvents = (io: Server, socket: Socket) => {
 
     // 1. ESCUCHAR: La pasajera pide un viaje
@@ -52,7 +55,7 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
                 name: driver.name,
                 vehiclePlates: driver.vehicle_plates || "ABC-123", // Lo que tengas en la BD
                 rating: 5.0,
-                photoUrl: "https://via.placeholder.com/150"
+                photoUrl: "https://static.wikia.nocookie.net/avatar/images/b/b6/Asami_Sato.png/revision/latest/thumbnail/width/360/height/360?cb=20150307043440&path-prefix=es"
             }
         });
 
@@ -88,5 +91,29 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
             rideId,
             message: "Tu conductora está afuera."
         });
+    });
+
+    //  ESCUCHAR: Verificación del PIN
+    socket.on('verify_pin', (data) => {
+        const { rideId, pin } = data;
+        const rideData = activeRidesDB.get(rideId);
+
+        // Si el PIN coincide con el que guardamos
+        if (rideData && rideData.pin === pin) {
+            console.log(`✅ PIN correcto para viaje ${rideId}. ¡Arrancando!`);
+
+            // Avisamos a la conductora que el pin es válido
+            socket.emit('pin_valid');
+
+            // Avisamos a la pasajera que el viaje comenzó hacia el destino
+            io.to(rideData.passengerId).emit('ride_started');
+
+            // Ya no necesitamos el PIN, podemos borrarlo de memoria
+            activeRidesDB.delete(rideId);
+        } else {
+            console.warn(`❌ Intento de PIN fallido en viaje ${rideId}`);
+            // Le rebotamos el error a la conductora
+            socket.emit('pin_invalid', { message: 'El PIN es incorrecto. Intenta de nuevo.' });
+        }
     });
 };
