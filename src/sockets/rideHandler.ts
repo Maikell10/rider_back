@@ -1,7 +1,8 @@
 import { Server, Socket } from 'socket.io';
 
-// 🛡️ MEMORIA TEMPORAL PARA LOS PINES DE SEGURIDAD
-const activeRidesDB = new Map();
+// 🛡️ VITAL: La base de datos debe estar AFUERA de la función
+// para que todas las conexiones compartan la misma información.
+const activeRidesDB = new Map<string, { pin: string, passengerId: string }>();
 
 export const handleRideEvents = (io: Server, socket: Socket) => {
 
@@ -41,11 +42,12 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
     socket.on('accept_ride', (data) => {
         const driver = socket.data.user;
         const { rideId, passengerId } = data;
-
-        console.log(`✅ Viaje ${rideId} aceptado por la conductora ${driver.name}`);
-
-        // Generamos el PIN de seguridad de 4 dígitos
         const securityPIN = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Guardamos en la memoria compartida
+        activeRidesDB.set(rideId, { pin: securityPIN, passengerId });
+
+        console.log(`💾 Viaje guardado: ${rideId} con PIN: ${securityPIN}`);
 
         // NOTIFICAR A LA PASAJERA: Le enviamos los datos de la conductora y el PIN
         io.to(passengerId).emit('ride_accepted', {
@@ -96,24 +98,21 @@ export const handleRideEvents = (io: Server, socket: Socket) => {
     //  ESCUCHAR: Verificación del PIN
     socket.on('verify_pin', (data) => {
         const { rideId, pin } = data;
+
+        // Log de depuración para ver qué llega exactamente a Render
+        console.log(`🔍 Verificando para ${rideId}: Llega PIN [${pin}]`);
+
         const rideData = activeRidesDB.get(rideId);
 
-        // Si el PIN coincide con el que guardamos
-        if (rideData && rideData.pin === pin) {
-            console.log(`✅ PIN correcto para viaje ${rideId}. ¡Arrancando!`);
-
-            // Avisamos a la conductora que el pin es válido
+        // Limpiamos espacios por si acaso con .trim()
+        if (rideData && rideData.pin.trim() === pin.trim()) {
+            console.log("✅ PIN Match!");
             socket.emit('pin_valid');
-
-            // Avisamos a la pasajera que el viaje comenzó hacia el destino
             io.to(rideData.passengerId).emit('ride_started');
-
-            // Ya no necesitamos el PIN, podemos borrarlo de memoria
             activeRidesDB.delete(rideId);
         } else {
-            console.warn(`❌ Intento de PIN fallido en viaje ${rideId}`);
-            // Le rebotamos el error a la conductora
-            socket.emit('pin_invalid', { message: 'El PIN es incorrecto. Intenta de nuevo.' });
+            console.log(`❌ PIN No coincide. Esperado: ${rideData?.pin}, Recibido: ${pin}`);
+            socket.emit('pin_invalid', { message: 'El PIN es incorrecto o el viaje no existe.' });
         }
     });
 };
